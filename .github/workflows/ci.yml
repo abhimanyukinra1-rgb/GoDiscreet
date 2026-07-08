@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-migrate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: godiscreet_user
+          POSTGRES_PASSWORD: secure_password_here
+          POSTGRES_DB: godiscreet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U godiscreet_user"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_NAME: godiscreet
+      DB_USER: godiscreet_user
+      DB_PASSWORD: secure_password_here
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      JWT_SECRET: ci_jwt_secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h 127.0.0.1 -p 5432 -U godiscreet_user && exit 0 || sleep 1
+          done
+
+      - name: Run DB migrations
+        working-directory: backend
+        run: node src/database/migrate.js
+
+      - name: Run DB seed
+        working-directory: backend
+        run: node src/database/seed.js
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test --silent || true
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint || true

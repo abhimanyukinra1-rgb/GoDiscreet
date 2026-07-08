@@ -15,6 +15,9 @@ const run = async () => {
   try {
     logger.info('Running database migrations...');
 
+    // Enable pgcrypto for gen_random_uuid if available
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
+
     // Users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
