@@ -12,3 +12,14 @@ Local development (quick start):
 
 If Docker is not available, ensure Postgres (matching the .env settings) and Redis are running locally before running migrations.
 
+Deployment to Render (recommended):
+
+1. Create a new Web Service on Render and connect it to this GitHub repository, or note the service ID.
+2. In the repository settings -> Secrets, add:
+   - RENDER_API_KEY: your Render API key
+   - RENDER_SERVICE_ID: the service id for your Web Service
+3. Push to main — the workflow `.github/workflows/deploy-render.yml` will trigger and call the Render API to create a new deploy.
+
+If you prefer another platform (Heroku, DigitalOcean), tell me and I will add deployment config for it.
+
+
